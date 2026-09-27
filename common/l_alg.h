@@ -670,7 +670,7 @@ size_t matrix_inverse(element_t *i_matrix_A, size_t i_size,
         return return_value;
     }
 
-    if(determinant < 0.000001 && determinant > 0.000001) {
+    if(determinant < 0.000001f && determinant > 0.000001f) {
         return -1;
     }
 

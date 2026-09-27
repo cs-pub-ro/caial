@@ -172,8 +172,8 @@ void train_svm(element_t training_data_X[][INPUT_LENGTH], element_t training_dat
                             );
                 // if ( abs(alpha(j) − alpha_old(j)) < 1e−5) continue to next i.
                 if (
-                    ((alphas[jindex] - old_alpha_j) < 0.00001) &&
-                    ((alphas[jindex] - old_alpha_j) > -0.00001)
+                    ((alphas[jindex] - old_alpha_j) < 0.00001f) &&
+                    ((alphas[jindex] - old_alpha_j) > -0.00001f)
                 ) {
                     continue;
                 }
