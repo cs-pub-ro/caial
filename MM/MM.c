@@ -3,7 +3,7 @@
 // Language: C
 // Author: Jose Cintra (jose.cintra@html-apps.info)
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 #define WITH_POSIT
 // #define WITH_SQRT

@@ -5,7 +5,7 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 #include "../common/l_alg.h"
 

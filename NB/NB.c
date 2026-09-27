@@ -3,7 +3,7 @@
 // https://www.machinelearningplus.com/predictive-modeling/how-naive-bayes-algorithm-works-with-example-and-full-code/
 // Ciocirlan Stefan-Dan 14.05.2019
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 
 #define INPUT_GROUPS_LENGTH 5

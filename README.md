@@ -1,191 +1,72 @@
 # CAIAL
 
-C simple AI algorithms for testing bprof on bare metal RISC-V roscket-chip.
-Also accepts other number representation systems then IEEE754. (POSIT currently)
-Currently are implemented the the next AI algoritms Classification Tree (CT),K-nearest neighbors (KNN),Deep neural networks (DNN), Linear regresion (LR), Naive Bayes (NB), Suport Vector Machine (SVM) and K-Means (KMEANS). Their implementation is simple as possible and does not use any libraries.
+Small floating-point workloads (series, sequences and simple AI algorithms)
+used to measure the accuracy of alternative number representations against
+IEEE 754 `float`. Each test is built either as plain IEEE code or through the
+[NRSSL LLVM pass](https://github.com/Earthbert/NRSSL-LLVMPass), which lowers
+the float operations to the custom NRS instructions of our rocket-chip, and
+runs bare metal on the rocket-chip Verilator emulator.
 
-## Getting Started
+## Requirements
 
-These instructions will get help you run these algorithm on the rocket-chip.
+Everything is expected to run inside the `racheta` container (the `shared/`
+directory mounted at `/workspace/shared`):
 
-### Prerequisites
+- clang/opt/llc/ld.lld from `shared/llvm-project/build`
+- the RISC-V GCC toolchain in `/opt/riscv` (only for headers, libgcc and objdump)
+- the pass plugin and NRSSL jars from `shared/NRSSL-LLVMPass/src`
+- the emulator from `shared/rocket-chip/out/emulator/...DefaultConfig...`
 
-[Nix](https://nix.dev/install-nix.html) installed on your system.
+All paths are CMake cache variables with these defaults, see
+`CMakeLists.txt` and `cmake/riscv64-clang.cmake` to override them.
 
+## Building and running
 
-* rocket chip
-```
-git clone https://github.com/Earthbert/rocket-chip
-cd rocket-chip
-submodule update --init --recursive
-```
+There is one preset (and build directory) per representation: `ieee`,
+`posit1`, `posit2`, `morris`, `morrisHeb`, `morrisUnaryHeb`, `morrisBiasHeb`.
 
-* llvm_pass
-```
-git clone https://github.com/Earthbert/NRSSL-LLVMPass
-cd NRSSL-LLVMPass/src
-make build_all
-```
-
-**IMPORTANT**: You must have env var LLVM_PASS set to the path of NRSSL-LLVMPass repo
-
-### Setup
-
-* nix development env
-```
-# Inside rocket-chip project
-# You can also enable these experimental features in "~/.config/nix/nix.conf", to shorten the command
-nix develop --extra-experimental-features nix-command --extra-experimental-features flakes
+```sh
+cmake --preset posit1           # configure build/posit1
+cmake --build --preset posit1   # build all tests
+ctest --preset posit1           # run all tests on the emulator
+ninja -C build/posit1 run-E     # run one test
+ninja -C build/posit1 trace-E   # run with +verbose, trace in build/posit1/E/E.trace
 ```
 
-**IMPORTANT**: You always need to have use this to have access to needed tools
+Without presets: `cmake -B build/x -G Ninja -DCAIAL_FLOAT_TYPE=posit2 -DCAIAL_OPT_LEVEL=0`.
 
-* create a emulator config
+Every test is compiled as `clang -> [NRS pass] -> opt -O<n> -> llc`, so the IEEE
+and NRS builds differ only by the pass. `build/<type>/<test>/` keeps all the
+intermediate files:
 
+| File | Content |
+| --- | --- |
+| `<test>.ll` | clang output, unoptimized |
+| `<test>.nrs.ll` | after the NRS pass (NRS builds only), pass output in `<test>.pass.log` |
+| `<test>.opt.ll` | after `opt -O<n>` |
+| `<test>.s` | assembly |
+| `<test>.elf`, `<test>.dump` | binary and its disassembly |
+
+## Runtime
+
+`runtime/` holds a minimal bare-metal runtime: startup code, HTIF console and
+exit, a trap handler and a tiny libc (`printf` without floating point, `mem*`,
+`str*`). There is no newlib: the one shipped with the toolchain is built for
+medlow and cannot be linked at 0x80000000. Floats have to be printed as bits,
+since the pass does not convert library code anyway.
+
+## Adding a test
+
+Put the sources in a new directory and register it in `CMakeLists.txt`:
+
+```cmake
+caial_add_test(NEWTEST NEWTEST/NEWTEST.c)
 ```
-# Inside rocket-chip project, with nix active
-mill emulator[freechips.rocketchip.system.TestHarness,freechips.rocketchip.system.$CONFIG_NAME].verilator.elf
-```
-
-* listing posible configs
-```
-# Inside rocket-chip project, with nix active
-mill resolve emulator._
-```
-
-### Installing
-
-* Clone and build the repo
-```
-git clone https://github.com/Earthbert/caial
-make
-make simv
-make strip
-```
-
-* Test the system
-
-```
-python parser.py  strip_simv.log output
-```
-
-## Running the tests
-
-If you want to test one of the algorithms you have to do the next things:
-Compile the algorithm
-If you want to compile for a specific NRS other then IEEE754 set the NRS env, also keep in mind that the SIM_CONFIG should be a config with that NRS.
-```
-make APP=NAME_OF_THE_ALGORITHM (NRS=NRS_Name)?
-
-```
-Simulate the algorithm
-```
-make simv APP=NAME_OF_THE_ALGORITHM (NRS=NRS_Name)?
-
-```
-Delete the logs that are not necesary
-```
-make strip APP=NAME_OF_THE_ALGORITHM (NRS=NRS_Name)?
-
-```
-Run the parser
-```
-python parser.py  strip_simv.log output
-
-```
-
-
-### Adding other programs
-
-For adding another program just create directory with the program name.
-Inside the directory write you code in the file with the name the same as the directory name
-plus extension ".c".
-Example:
-
-```
-mkdir NEWPROGRAM
-cd NEWPROGRAM
-touch NEWPROGRAM
-...
-cd ..
-make APP=NEWPROGRAM
-```
-
-### Analyze the results
-
-The results will be in the file with the name of the second argument to the parser plus
-".csv" extension.
-
-```
-python parser.py  strip_simv.log output
-cat output.csv
-```
-
-## Docker Deployment
-
-If you want to use dockers. First you will have to install docker.
-
-### Build the docker image
-```
-docker build -t caial docker
-```
-
-### Run docker with local git repo as a volume
-```
-docker run -it -v `pwd`:/project/caial caial
-```
-
-### Download docker image
-```
-docker pull sdcioc/bprofriscv:latest
-```
-Inside docker
-```
-cd caial
-git pull
-```
-
-
-## Built With
-
-* [Rocket-Chip](https://github.com/freechipsproject/rocket-chip) - The RISC-V processor used
-* [Rocket-tools](https://github.com/freechipsproject/rocket-tools) - Tools for Rocket Chip and RISC-V tools
-* [RISCV-TESTS](https://github.com/riscv/riscv-tests) - Tests for RISC-V cores
-
-
-## Directories
-All directories except docker represent an algorithm that can be used. The "docker" directory has a Dockerfile necesary for building the docker image.
-
-## Experiment logic
-
-TODO:
-
-
-## Implementations
-
-TODO:
-
-## Contributing
-TODO:
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-TODO:
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
 
 ## Authors
 
-* **Ciocîrlan Ștefan-Dan** - *Algorithms and building the system work* - [sdcioc](https://github.com/sdcioc)
-
-See also the list of [contributors](https://github.com/sdcioc/caial.git/contributors) who participated in this project.
+* **Ciocîrlan Ștefan-Dan** - original algorithms and build system - [sdcioc](https://github.com/sdcioc)
 
 ## License
 
-This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details
-
-## Acknowledgments
-
-* NUS
+BSD 3-Clause, see [LICENSE](LICENSE).

@@ -4,7 +4,7 @@
 // Ciocirlan Stefan-Dan 15.05.2019
 
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 
 #define INPUT_LENGTH_SQUARE INPUT_LENGTH*INPUT_LENGTH

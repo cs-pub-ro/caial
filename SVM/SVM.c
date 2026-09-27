@@ -3,7 +3,7 @@
 // Ciocirlan Stefan-Dan 14.05.2019 ver 1.0
 
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 
 #define MAX_ITERATIONS 15

@@ -1,5 +1,1 @@
-*.riscv
-*.dump
-*.o
-*.log
-*.stdout
+build/

@@ -3,7 +3,7 @@
 // Ciocirlan Stefan-Dan 14.05.2019
 
 #include <stdlib.h>
-#include "util.h"
+#include <stdio.h>
 #include "../common/common.h"
 
 #define K_VALUE 7
