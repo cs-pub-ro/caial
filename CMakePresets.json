@@ -15,6 +15,14 @@
       }
     },
     {
+      "name": "ieee64",
+      "inherits": "base",
+      "cacheVariables": {
+        "CAIAL_FLOAT_TYPE": "ieee",
+        "CAIAL_FP_BITS": "64"
+      }
+    },
+    {
       "name": "posit1",
       "inherits": "base",
       "cacheVariables": {
@@ -63,6 +71,10 @@
       "configurePreset": "ieee"
     },
     {
+      "name": "ieee64",
+      "configurePreset": "ieee64"
+    },
+    {
       "name": "posit1",
       "configurePreset": "posit1"
     },
@@ -91,6 +103,16 @@
     {
       "name": "ieee",
       "configurePreset": "ieee",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 8
+      }
+    },
+    {
+      "name": "ieee64",
+      "configurePreset": "ieee64",
       "output": {
         "outputOnFailure": true
       },

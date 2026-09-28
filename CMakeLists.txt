@@ -14,6 +14,14 @@ if(NOT CAIAL_FLOAT_TYPE IN_LIST CAIAL_FLOAT_TYPES)
 endif()
 
 set(CAIAL_OPT_LEVEL "2" CACHE STRING "Optimization level (0-3) for the test sources")
+set(CAIAL_FP_BITS "32" CACHE STRING "Width of fp_t in the tests: 32 (float) or 64 (double)")
+set_property(CACHE CAIAL_FP_BITS PROPERTY STRINGS 32 64)
+if(NOT CAIAL_FLOAT_TYPE STREQUAL "ieee" AND NOT CAIAL_FP_BITS STREQUAL "32")
+  message(FATAL_ERROR "the NRS pass only supports 32-bit floats")
+endif()
+option(CAIAL_TRACE "Print per-iteration values (CAIAL_TRACE_VALUE) in the tests" OFF)
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(NRS_PASS_PLUGIN "/workspace/shared/NRSSL-LLVMPass/src/build/libNRSConversionPass.so"
     CACHE FILEPATH "NRS conversion pass plugin")
@@ -32,17 +40,4 @@ enable_testing()
 
 add_subdirectory(runtime)
 
-caial_add_test(E E/E.c)
-caial_add_test(PI PI/PI.c)
-caial_add_test(MSEQ MSEQ/MSEQ.c)
-caial_add_test(MM MM/MM.c)
-caial_add_test(KNN KNN/KNN.c)
-caial_add_test(KMEANS KMEANS/KMEANS.c)
-caial_add_test(LR LR/LR.c)
-caial_add_test(NB NB/NB.c)
-caial_add_test(SVM SVM/SVM.c)
-caial_add_test(CT CT/CT.c)
-caial_add_test(DNN DNN/DNN.c)
-caial_add_test(DNN2 DNN2/DNN2.c)
-caial_add_test(CNN CNN/CNN.c)
-caial_add_test(SimpleFPUTest SimpleFPUTest/SimpleFPUTest.c)
+caial_add_test(e tests/e.c)

@@ -13,7 +13,16 @@
 # InstCombine & co. fold constants and rewrite float ops with IEEE semantics.
 # It must also run exactly once, since it rewrites constants in place.
 
-set(CAIAL_C_FLAGS -std=gnu11 -g -ffp-contract=off -fno-math-errno -Wall)
+set(CAIAL_C_FLAGS -std=gnu11 -g -ffp-contract=off -fno-math-errno -Wall
+  -DFP_BITS=${CAIAL_FP_BITS} -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/data -I${CMAKE_SOURCE_DIR}/tests)
+if(CAIAL_TRACE)
+  list(APPEND CAIAL_C_FLAGS -DCAIAL_TRACE)
+endif()
+
+# Gold headers are picked up with __has_include, so reconfigure when one appears.
+file(GLOB _caial_gold_headers CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/*.gold.h)
+
+set(CAIAL_PY ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/caial.py)
 
 separate_arguments(_caial_arch_flags UNIX_COMMAND "${RISCV_ARCH_FLAGS}")
 set(_caial_clang
@@ -33,12 +42,16 @@ function(caial_add_test name source)
   set(out "${CMAKE_BINARY_DIR}/${name}")
   set(src "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
   file(MAKE_DIRECTORY "${out}")
+  set(deps "${src}")
+  if(EXISTS "${CMAKE_SOURCE_DIR}/tests/${name}.gold.h")
+    list(APPEND deps "${CMAKE_SOURCE_DIR}/tests/${name}.gold.h")
+  endif()
 
   add_custom_command(
     OUTPUT "${out}/${name}.ll"
-    COMMAND ${_caial_clang} ${_caial_frontend_opt} -I${CMAKE_SOURCE_DIR}
+    COMMAND ${_caial_clang} ${_caial_frontend_opt} -DCAIAL_TEST=${name}
             -MD -MF "${out}/${name}.d" -S -emit-llvm -o "${out}/${name}.ll" "${src}"
-    DEPENDS "${src}"
+    DEPENDS ${deps}
     DEPFILE "${out}/${name}.d"
     COMMENT "[${name}] clang -> ${name}.ll"
     VERBATIM)
@@ -51,7 +64,8 @@ function(caial_add_test name source)
               ${OPT} -load-pass-plugin=${NRS_PASS_PLUGIN} -passes=ieee-to-posit
               --float_type=${CAIAL_FLOAT_TYPE} -S -o "${out}/${name}.nrs.ll" "${ir}"
               > "${out}/${name}.pass.log"
-      DEPENDS "${ir}" "${NRS_PASS_PLUGIN}"
+      COMMAND ${CAIAL_PY} check-ir "${out}/${name}.nrs.ll"
+      DEPENDS "${ir}" "${NRS_PASS_PLUGIN}" "${CMAKE_SOURCE_DIR}/tools/caial.py"
       COMMENT "[${name}] NRS pass (${CAIAL_FLOAT_TYPE}) -> ${name}.nrs.ll"
       VERBATIM)
     set(ir "${out}/${name}.nrs.ll")
@@ -95,5 +109,7 @@ function(caial_add_test name source)
     USES_TERMINAL
     VERBATIM)
 
-  add_test(NAME ${name} COMMAND ${EMULATOR} $<TARGET_FILE:${name}>)
+  add_test(NAME ${name}
+    COMMAND ${CAIAL_PY} run --type ${CAIAL_FLOAT_TYPE} --fp-bits ${CAIAL_FP_BITS}
+            --emulator ${EMULATOR} --jars ${NRSSL_JARS} --out "${out}" $<TARGET_FILE:${name}>)
 endfunction()
