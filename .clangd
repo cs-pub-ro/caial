@@ -1,4 +1,4 @@
 CompileFlags:
-  Add: [--target=riscv64-unknown-elf, -std=gnu11, -Iinclude, -Idata, -Itests, -I../include, -I../data, -I../tests, -DCAIAL_TRACE]
+  Add: [-xc, -std=gnu11, -Iinclude, -Idata, -Itests, -I../include, -I../data, -I../tests, -DCAIAL_TRACE]
 Diagnostics:
   Suppress: "asm_invalid_output_constraint"
