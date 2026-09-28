@@ -109,7 +109,25 @@ function(caial_add_test name source)
     USES_TERMINAL
     VERBATIM)
 
+  set_property(GLOBAL APPEND PROPERTY CAIAL_TESTS ${name})
+
   add_test(NAME ${name}
     COMMAND ${CAIAL_PY} run --type ${CAIAL_FLOAT_TYPE} --fp-bits ${CAIAL_FP_BITS}
             --emulator ${EMULATOR} --jars ${NRSSL_JARS} --out "${out}" $<TARGET_FILE:${name}>)
+endfunction()
+
+# gold: rerun all tests in this IEEE f32 build and the IEEE f64 build and
+# rewrite tests/<test>.gold.h. Build the ieee64 preset first.
+function(caial_add_gold_target)
+  if(NOT (CAIAL_FLOAT_TYPE STREQUAL "ieee" AND CAIAL_FP_BITS STREQUAL "32"))
+    return()
+  endif()
+  set(CAIAL_GOLD_F64_DIR "${CMAKE_SOURCE_DIR}/build/ieee64" CACHE PATH "IEEE f64 build used by the gold target")
+  get_property(tests GLOBAL PROPERTY CAIAL_TESTS)
+  add_custom_target(gold
+    COMMAND ${CAIAL_PY} gold --f32 ${CMAKE_BINARY_DIR} --f64 ${CAIAL_GOLD_F64_DIR}
+            --src ${CMAKE_SOURCE_DIR}/tests --emulator ${EMULATOR} ${tests}
+    DEPENDS ${tests}
+    USES_TERMINAL
+    VERBATIM)
 endfunction()

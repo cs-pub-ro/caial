@@ -7,7 +7,7 @@
 #include "caial.h"
 
 // exp(x): halve x until |x| <= 1/2, Taylor series, then square back up.
-static fp_t fp_exp(fp_t x) {
+__attribute__((unused)) static fp_t fp_exp(fp_t x) {
   fp_t a = fp_abs(x);
   int k = 0;
   while (a > FP_C(0.5)) {
@@ -27,6 +27,6 @@ static fp_t fp_exp(fp_t x) {
   return x < FP_C(0.0) ? FP_C(1.0) / sum : sum;
 }
 
-static fp_t fp_sigmoid(fp_t x) { return FP_C(1.0) / (FP_C(1.0) + fp_exp(-x)); }
+__attribute__((unused)) static fp_t fp_sigmoid(fp_t x) { return FP_C(1.0) / (FP_C(1.0) + fp_exp(-x)); }
 
 #endif // CAIAL_MATH_H
