@@ -4,6 +4,7 @@
   caial.py run      run one test on the emulator, decode and compare its results
   caial.py gold     regenerate tests/<test>.gold.h from the IEEE f32 and f64 builds
   caial.py diff     compare the traces of two runs of the same test
+  caial.py summary  one table of relative errors over several builds
   caial.py check-ir fail if post-pass IR still has IEEE float operations
 
 Tests print raw bits (see include/caial.h). IEEE bits are decoded here, NRS
@@ -46,9 +47,13 @@ def decode(bits, float_type, width, jars):
     return [float(v) for v in out]
 
 
-def run_emulator(emulator, elf):
-    """Run a test binary, return (exit code, stdout lines)."""
-    p = subprocess.run([emulator, elf], capture_output=True, text=True)
+def run_emulator(emulator, elf, timeout):
+    """Run a test binary, return (exit code, output lines). Exit code None means timeout."""
+    try:
+        p = subprocess.run([emulator, elf], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        out = (e.stdout or b"").decode(errors="replace") + (e.stderr or b"").decode(errors="replace")
+        return None, out.splitlines()
     return p.returncode, p.stdout.splitlines() + p.stderr.splitlines()
 
 
@@ -81,13 +86,15 @@ def absdiff(a, b):
 
 def cmd_run(args):
     width = args.fp_bits
-    code, lines = run_emulator(args.emulator, args.elf)
+    code, lines = run_emulator(args.emulator, args.elf, args.timeout)
     for line in lines:
         if not line.startswith("@") and args.verbose:
             print(line)
     results, iresults, exact, trace = parse(lines)
     failed = code != 0
-    if code != 0:
+    if code is None:
+        print("FAIL: timed out after %ds" % args.timeout)
+    elif code != 0:
         print("\n".join(l for l in lines if not l.startswith("@")))
         print("FAIL: emulator exited with %d" % code)
 
@@ -150,9 +157,9 @@ def cmd_run(args):
 def cmd_gold(args):
     """Run every test in both IEEE builds and write tests/<test>.gold.h."""
     def collect(build, test):
-        code, lines = run_emulator(args.emulator, os.path.join(build, test, test + ".elf"))
+        code, lines = run_emulator(args.emulator, os.path.join(build, test, test + ".elf"), args.timeout)
         if code != 0:
-            sys.exit("%s in %s exited with %d:\n%s" % (test, build, code, "\n".join(lines)))
+            sys.exit("%s in %s exited with %s:\n%s" % (test, build, code, "\n".join(lines)))
         results, iresults, _, _ = parse(lines)
         return results, iresults
 
@@ -211,6 +218,38 @@ def cmd_diff(args):
     return 0
 
 
+def cmd_summary(args):
+    """Relative error of every result against the f64 (or exact) reference, one column per build."""
+    col = "exact" if args.ref == "exact" else "ref_f64"
+    table, order = {}, []
+    for build in args.builds:
+        for test in sorted(os.listdir(build)):
+            path = os.path.join(build, test, test + ".results.csv")
+            if not os.path.exists(path):
+                continue
+            with open(path) as f:
+                for r in csv.DictReader(f):
+                    key = (test, r["name"], int(r["idx"]))
+                    if key not in table:
+                        table[key] = {}
+                        order.append(key)
+                    v, ref = float(r["value"]), r[col]
+                    if ref == "None":
+                        continue
+                    ref = float(ref)
+                    err = abs(v - ref) / abs(ref) if ref else abs(v - ref)
+                    table[key][build] = err
+    names = [os.path.basename(os.path.normpath(b)) for b in args.builds]
+    print("relative error against %s" % ("the exact value" if args.ref == "exact" else "IEEE double"))
+    print("%-28s" % "result" + "".join("%15s" % n for n in names))
+    for key in order:
+        errs = [table[key].get(b) for b in args.builds]
+        if all(e is None for e in errs):
+            continue
+        print("%-28s" % ("%s.%s[%d]" % key) + "".join("%15s" % ("-" if e is None else "%.3g" % e) for e in errs))
+    return 0
+
+
 # IEEE float work that the pass left in place. Run on the .nrs.ll output.
 IR_PATTERNS = [
     (re.compile(r"= (fadd|fsub|fmul|fdiv|frem|fneg)( \w+)* (float|double)\b"), "float arithmetic"),
@@ -262,6 +301,7 @@ def main():
     r.add_argument("--jars", default="/workspace/shared/NRSSL-LLVMPass/src/jars")
     r.add_argument("--out", required=True, help="where to put <test>.results.csv and <test>.trace.csv")
     r.add_argument("-v", "--verbose", action="store_true", help="also print the plain test output")
+    r.add_argument("--timeout", type=int, default=300, help="seconds before the emulator is killed")
     r.add_argument("elf")
 
     g = sub.add_parser("gold", help="regenerate the gold headers")
@@ -270,6 +310,7 @@ def main():
     g.add_argument("--src", required=True, help="where the gold headers go (tests/)")
     g.add_argument("--emulator", required=True)
     g.add_argument("-j", "--jobs", type=int, default=os.cpu_count())
+    g.add_argument("--timeout", type=int, default=300)
     g.add_argument("tests", nargs="*")
 
     d = sub.add_parser("diff", help="compare two trace CSVs")
@@ -278,11 +319,15 @@ def main():
     d.add_argument("--threshold", type=float, default=1e-6, help="relative difference to flag")
     d.add_argument("--only-drift", action="store_true", help="only print the first line above the threshold")
 
+    s = sub.add_parser("summary", help="relative errors of all results over several builds")
+    s.add_argument("builds", nargs="+", help="build directories that ran ctest")
+    s.add_argument("--ref", choices=["f64", "exact"], default="f64")
+
     c = sub.add_parser("check-ir", help="check post-pass IR for leftover IEEE float operations")
     c.add_argument("ll")
 
     args = p.parse_args()
-    return {"run": cmd_run, "gold": cmd_gold, "diff": cmd_diff, "check-ir": cmd_check_ir}[args.cmd](args)
+    return {"run": cmd_run, "gold": cmd_gold, "diff": cmd_diff, "summary": cmd_summary, "check-ir": cmd_check_ir}[args.cmd](args)
 
 
 if __name__ == "__main__":

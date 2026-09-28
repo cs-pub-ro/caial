@@ -7,10 +7,11 @@
 #include "caial.h"
 
 // exp(x): halve x until |x| <= 1/2, Taylor series, then square back up.
+// The halving is capped, an inf/NaN input must not hang the test.
 __attribute__((unused)) static fp_t fp_exp(fp_t x) {
   fp_t a = fp_abs(x);
   int k = 0;
-  while (a > FP_C(0.5)) {
+  while (k < 64 && a > FP_C(0.5)) {
     a = a * FP_C(0.5);
     k++;
   }

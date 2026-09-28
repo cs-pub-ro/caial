@@ -113,7 +113,8 @@ function(caial_add_test name source)
 
   add_test(NAME ${name}
     COMMAND ${CAIAL_PY} run --type ${CAIAL_FLOAT_TYPE} --fp-bits ${CAIAL_FP_BITS}
-            --emulator ${EMULATOR} --jars ${NRSSL_JARS} --out "${out}" $<TARGET_FILE:${name}>)
+            --emulator ${EMULATOR} --jars ${NRSSL_JARS} --timeout ${CAIAL_TEST_TIMEOUT}
+            --out "${out}" $<TARGET_FILE:${name}>)
 endfunction()
 
 # gold: rerun all tests in this IEEE f32 build and the IEEE f64 build and

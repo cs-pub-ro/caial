@@ -19,6 +19,7 @@ set_property(CACHE CAIAL_FP_BITS PROPERTY STRINGS 32 64)
 if(NOT CAIAL_FLOAT_TYPE STREQUAL "ieee" AND NOT CAIAL_FP_BITS STREQUAL "32")
   message(FATAL_ERROR "the NRS pass only supports 32-bit floats")
 endif()
+set(CAIAL_TEST_TIMEOUT "300" CACHE STRING "Seconds before a test run on the emulator is killed")
 option(CAIAL_TRACE "Print per-iteration values (CAIAL_TRACE_VALUE) in the tests" OFF)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
