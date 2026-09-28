@@ -60,8 +60,24 @@ int strcmp(const char *a, const char *b) {
   return (unsigned char)*a - (unsigned char)*b;
 }
 
-// Output sink: either a bounded string (snprintf) or the console (printf),
-// buffered so that each HTIF call writes a whole chunk.
+// Console output is collected here and written out when the buffer is full
+// or at exit: every HTIF call is a round trip to the host, which is slow in
+// the emulator.
+static char stdout_buf[4096];
+static size_t stdout_len;
+
+void stdout_flush(void) {
+  htif_write(1, stdout_buf, stdout_len);
+  stdout_len = 0;
+}
+
+static void stdout_putc(char c) {
+  if (stdout_len == sizeof(stdout_buf))
+    stdout_flush();
+  stdout_buf[stdout_len++] = c;
+}
+
+// Output sink: either a bounded string (snprintf) or stdout (printf).
 struct sink {
   char *buf;
   size_t cap;
@@ -70,21 +86,12 @@ struct sink {
   int console;
 };
 
-static void sink_flush(struct sink *s) {
-  if (s->console) {
-    htif_write(1, s->buf, s->len);
-    s->len = 0;
-  }
-}
-
 static void sink_putc(struct sink *s, char c) {
   s->total++;
-  if (s->len + 1 < s->cap) {
+  if (s->console)
+    stdout_putc(c);
+  else if (s->len + 1 < s->cap)
     s->buf[s->len++] = c;
-  } else if (s->console) {
-    sink_flush(s);
-    s->buf[s->len++] = c;
-  }
 }
 
 static void put_padded(struct sink *s, const char *str, size_t n, int width, int left, char pad) {
@@ -228,10 +235,8 @@ int snprintf(char *buf, size_t size, const char *fmt, ...) {
 }
 
 int vprintf(const char *fmt, va_list ap) {
-  char buf[128];
-  struct sink s = {buf, sizeof(buf), 0, 0, 1};
+  struct sink s = {NULL, 0, 0, 0, 1};
   format(&s, fmt, ap);
-  sink_flush(&s);
   return s.total;
 }
 
@@ -244,13 +249,13 @@ int printf(const char *fmt, ...) {
 }
 
 int putchar(int c) {
-  char ch = (char)c;
-  htif_write(1, &ch, 1);
+  stdout_putc((char)c);
   return c;
 }
 
 int puts(const char *s) {
-  htif_write(1, s, strlen(s));
-  htif_write(1, "\n", 1);
+  while (*s)
+    stdout_putc(*s++);
+  stdout_putc('\n');
   return 0;
 }

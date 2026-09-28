@@ -31,7 +31,10 @@ void htif_write(int fd, const char *buf, size_t len) {
     htif_syscall(SYS_write, fd, (uintptr_t)buf, len);
 }
 
+void stdout_flush(void);
+
 void __attribute__((noreturn)) _exit(int code) {
+  stdout_flush();
   tohost = ((uint64_t)code << 1) | 1;
   for (;;)
     ;
@@ -59,6 +62,7 @@ static void put_hex(uint64_t v) {
 // Called from crt.S on any trap. Tests run in M-mode and never expect traps,
 // so report and bail out (e.g. an illegal instruction from an unknown opcode).
 void __attribute__((noreturn)) handle_trap(uint64_t mcause, uint64_t mepc, uint64_t mtval) {
+  stdout_flush();
   put_str("\n*** trap: mcause=");
   put_hex(mcause);
   put_str(" mepc=");
