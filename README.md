@@ -131,6 +131,28 @@ The CNN, CT and DNN2 tests of the original caial were dropped: CNN took very
 long without adding much, CT is mostly integer logic and DNN2 overlapped with
 DNN.
 
+## Known limitations
+
+- Only 32-bit floats: the pass maps f32 operations only and leaves `double`
+  code alone (the IR check rejects it).
+- Int <-> float conversions work for 32-bit signed ints only. The hardware
+  converts the low 32 bits as signed, and the pass sign-extends unsigned inputs.
+- The Morris formats have no infinity: out-of-range values become NaR, which
+  then propagates. Keep intermediate values in range (see `fp_exp`).
+- Morris and MorrisHEB round to zero in the hardware (rocket-chip `FPU.scala`),
+  the other formats and NRSSL round to nearest even. Round-to-nearest-even is
+  broken for these two: the nrshgl encoders round by adding 1 to the packed
+  bits, which only works when the bit order is the value order. With a
+  variable-length exponent field, a carry out of the fraction corrupts the
+  exponent (Viete's pi goes wrong once sqrt(2+a) rounds up to 2). The fix
+  belongs in the nrshgl encoders: round the mantissa before packing and bump
+  the exponent on overflow. Until then, long accumulations in these two
+  formats show the bias of truncation.
+- Constant expressions such as `FP_C(1.0) / FP_C(3.0)` are folded by clang in
+  IEEE before the pass sees them, and only the rounded result is converted.
+  Write the operands as separate values if that matters.
+- NRS builds only report errors, there are no tolerance checks yet.
+
 ## Authors
 
 * **Ciocîrlan Ștefan-Dan** - original algorithms and build system - [sdcioc](https://github.com/sdcioc)
