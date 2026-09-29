@@ -7,11 +7,13 @@
 #include "caial.h"
 
 // exp(x): halve x until |x| <= 1/2, Taylor series, then square back up.
+// Negative x is handled directly instead of as 1/exp(-x): exp(-x) for large x
+// can be out of range (Morris formats overflow to NaR), exp(x) just goes to 0.
 // The halving is capped, an inf/NaN input must not hang the test.
 __attribute__((unused)) static fp_t fp_exp(fp_t x) {
-  fp_t a = fp_abs(x);
+  fp_t a = x;
   int k = 0;
-  while (k < 64 && a > FP_C(0.5)) {
+  while (k < 64 && FP_C(0.5) < fp_abs(a)) {
     a = a * FP_C(0.5);
     k++;
   }
@@ -24,8 +26,7 @@ __attribute__((unused)) static fp_t fp_exp(fp_t x) {
   }
   while (k-- > 0)
     sum = sum * sum;
-
-  return x < FP_C(0.0) ? FP_C(1.0) / sum : sum;
+  return sum;
 }
 
 __attribute__((unused)) static fp_t fp_sigmoid(fp_t x) { return FP_C(1.0) / (FP_C(1.0) + fp_exp(-x)); }
