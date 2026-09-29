@@ -65,7 +65,7 @@ function(caial_add_test name source)
               --float_type=${CAIAL_FLOAT_TYPE} -S -o "${out}/${name}.nrs.ll" "${ir}"
               > "${out}/${name}.pass.log"
       COMMAND ${CAIAL_PY} check-ir "${out}/${name}.nrs.ll"
-      DEPENDS "${ir}" "${NRS_PASS_PLUGIN}" "${CMAKE_SOURCE_DIR}/tools/caial.py"
+      DEPENDS "${ir}" "${NRS_PASS_PLUGIN}" "${NRSSL_JARS}/nrssl.jar" "${CMAKE_SOURCE_DIR}/tools/caial.py"
       COMMENT "[${name}] NRS pass (${CAIAL_FLOAT_TYPE}) -> ${name}.nrs.ll"
       VERBATIM)
     set(ir "${out}/${name}.nrs.ll")
